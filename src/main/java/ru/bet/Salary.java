@@ -1,6 +1,7 @@
 package ru.bet;
 
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -9,6 +10,7 @@ import javax.persistence.Id;
 
 @Entity
 @Data
+@RequiredArgsConstructor
 public class Salary {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -22,6 +24,4 @@ public class Salary {
         this.date = date;
     }
 
-    public Salary () {
-    }
 }
