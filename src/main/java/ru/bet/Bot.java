@@ -6,12 +6,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import javax.annotation.Nonnull;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Date;
 
 @Component
 @RequiredArgsConstructor
@@ -30,21 +32,31 @@ public class Bot extends TelegramLongPollingBot {
         if (update.hasMessage()) {
             val message = update.getMessage();
             if (message.getChatId() == 886843243 && message.hasText()) {
-                Date date = new Date((long) message.getDate() * 1000);
                 try {
-                    if (message.getText().startsWith("$")) {
-                        val substring = message.getText().substring(1);
-                        SendMessage sendMessage = new SendMessage();
-                        sendMessage.setText(substring);
-                        sendMessage.setChatId(message.getChatId().toString());
+                    val text = message.getText();
+                    //Если символ $ - значит мы добавляем число в дб
+                    if (text.startsWith("$")) {
+                        val substring = text.substring(1);
+                        SendMessage sendMessage = addSendMessage(message, "add " + substring);
                         Salary salary = new Salary(substring, message.getDate());
                         salaryRepo.save(salary);
-                        Iterable<Salary> all = salaryRepo.findAll();
-                        ArrayList<String> objects = new ArrayList<>();
+                        execute(sendMessage);
+                    }
+                    //Считываем из дб данные
+                    if (text.startsWith("#")) {
+                        val substring = text.substring(1);
+                        val salaries = new ArrayList<Salary>();
+                        val all = salaryRepo.findAll();
                         all.forEach(s -> {
-                            objects.add(s.getSalary());
+                            val localDate = Instant.ofEpochSecond(s.getDate()).atZone(ZoneId.systemDefault()).toLocalDate();
+                            if (localDate.getMonthValue() == Integer.parseInt(substring))
+                                salaries.add(s);
                         });
-                        sendMessage.setText(String.join(", " , objects));
+                        var sum = 0;
+                        for (Salary salary : salaries) {
+                            sum += Integer.parseInt(salary.getSalary());
+                        }
+                        SendMessage sendMessage = addSendMessage(message, Integer.toString(sum));
                         execute(sendMessage);
                     }
                 } catch (TelegramApiException e) {
@@ -52,6 +64,14 @@ public class Bot extends TelegramLongPollingBot {
                 }
             }
         }
+    }
+
+    @Nonnull
+    private SendMessage addSendMessage(Message message, String substring) {
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setText(substring);
+        sendMessage.setChatId(message.getChatId().toString());
+        return sendMessage;
     }
 
     @Override
